@@ -27,7 +27,7 @@
       100% { transform: scale(1); opacity: 1; }
     }
     
-    .tab-value { font-weight: 900; font-size: 1.2rem; color: #38bdf8; z-index: 1; opacity: 0; }
+    .tab-value { font-weight: 900; font-size: 1.2rem; color: #38bdf8; z-index: ; opacity: 0; }
     .tab-value.revealed { opacity: 1; animation: prizePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     .prize-text { color: #fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
     
@@ -48,9 +48,49 @@
     
     .btn-primary { background: linear-gradient(to bottom, #22c55e, #16a34a); color: white; border: 1px solid #15803d; }
     .btn-secondary { background: linear-gradient(to bottom, #fbbf24, #d97706); color: black; border: 1px solid #b45309; }
+    /* Navigation & Small Buttons */
+.top-nav { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; align-items: center; }
+#user-info { font-size: 0.9rem; color: #94a3b8; font-weight: bold; }
+.nav-buttons { display: flex; gap: 10px; width: 100%; }
+.btn-small { padding: 8px 12px; font-size: 0.85rem; border-radius: 8px; flex: 1; }
+.btn-google { background: white; color: #333; border: 1px solid #ccc; }
+.btn-logout { background: #ef4444; color: white; border: 1px solid #b91c1c; }
+.btn-history { background: #3b82f6; color: white; border: 1px solid #1d4ed8; }
+
+/* History Modal Specifics */
+.history-content { max-height: 80vh; display: flex; flex-direction: column; width: 90%; max-width: 400px; padding: 0; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #334155; background: #0f172a; border-radius: 16px 16px 0 0; }
+.modal-header h2 { margin: 0; font-size: 1.2rem; }
+.close-btn { background: transparent; border: none; color: white; font-size: 1.2rem; cursor: pointer; padding: 0; width: auto; box-shadow: none; }
+.history-list { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.history-item { background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 0.9rem; }
+.history-item .time { color: #64748b; font-size: 0.8rem; margin-bottom: 4px; display: block; }
   </style>
 </head>
 <body>
+    
+    <!-- Auth & History Controls -->
+  <div class="top-nav">
+    <div id="user-info">Playing Anonymously</div>
+    <div class="nav-buttons">
+      <button class="btn-small btn-google" id="login-btn" onclick="window.loginWithGoogle()">Sign in with Google</button>
+      <button class="btn-small btn-logout" id="logout-btn" onclick="window.logout()" style="display: none;">Sign Out</button>
+      <button class="btn-small btn-history" onclick="window.openHistory()">📜 History</button>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div class="modal" id="history-modal">
+    <div class="modal-content history-content">
+      <div class="modal-header">
+        <h2>Account History</h2>
+        <button class="close-btn" onclick="window.closeHistory()">✖</button>
+      </div>
+      <div class="history-list" id="history-list">
+        <!-- History items will inject here -->
+      </div>
+    </div>
+  </div>
 
   <div class="header">
     <h1>🎟️ Pull Tab Frenzy</h1>
@@ -129,29 +169,43 @@
       const covers = document.querySelectorAll('.tab-cover');
       covers.forEach((cover, idx) => {
         cover.classList.remove('opened');
-        document.getElementById(`val-${idx}`).innerText = '???';
-      });
+        
+        const valElement = document.getElementById(`val-${idx}`);
+        valElement.innerText = '???';
+        
+        // THIS IS THE FIX: Hide the text again for the new card
+        valElement.classList.remove('revealed'); 
+    });
 
       updateUI();
     }
 
     function openTab(index) {
-      const cover = document.querySelectorAll('.tab-cover')[index];
-      if (cover.classList.contains('opened')) return;
+  const cover = document.querySelectorAll('.tab-cover')[index];
+  if (cover.classList.contains('opened')) return;
 
-      cover.classList.add('opened');
-      const reward = currentRewards[index];
-      document.getElementById(`val-${index}`).innerText = typeof reward === 'number' ? `+${reward} Coins` : reward;
+  cover.classList.add('opened');
+  const reward = currentRewards[index];
+  
+  // Grab the text element
+  const valElement = document.getElementById(`val-${index}`);
+  
+  // Update the text
+  valElement.innerText = typeof reward === 'number' ? `+${reward} Coins` : reward;
+  
+  // THIS IS THE FIX: Trigger the CSS animation to make the text visible
+  valElement.classList.add('revealed'); 
 
-      if (typeof reward === 'number') {
-        coins += reward;
-      } else if (reward.includes("PRIZE")) {
-        document.getElementById('prize-modal').style.display = 'flex';
-      }
+  if (typeof reward === 'number') {
+    // Note: If you hooked up Firebase, this is where window.logActionToDB goes!
+    coins += reward; 
+  } else if (reward.includes("PRIZE")) {
+    document.getElementById('prize-modal').style.display = 'flex';
+  }
 
-      openedCount++;
-      updateUI();
-    }
+  openedCount++;
+  updateUI();
+}
 
     function closeModal() {
       document.getElementById('prize-modal').style.display = 'none';
@@ -162,70 +216,164 @@
   </script>
 
   <script type="module">
-  // Import Firebase v9 Modular SDK
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+  import { 
+    getAuth, 
+    signInAnonymously, 
+    onAuthStateChanged, 
+    signInWithPopup, 
+    GoogleAuthProvider, 
+    signOut 
+  } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+  import { 
+    getFirestore, 
+    doc, 
+    getDoc, 
+    setDoc, 
+    updateDoc, 
+    onSnapshot, 
+    arrayUnion 
+  } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyAytb8idAxIFGlSKrrfiJLqgJHmWp8BpLs",
-    authDomain: "lucky-pull-tabs.firebaseapp.com",
-    projectId: "lucky-pull-tabs",
-    storageBucket: "lucky-pull-tabs.firebasestorage.app",
-    messagingSenderId: "843069979099",
-    appId: "1:843069979099:web:77a3551a85df3d3fc58ffe",
-    measurementId: "G-KQ0GP1DVDS"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
 
-  // Initialize App, Auth, and Database
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
 
   let userId = null;
+  let localHistory = [];
 
-  // Listen for Auth State
+  // --- AUTHENTICATION FLOW ---
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       userId = user.uid;
-      console.log("Logged in as:", userId);
+      const isAnon = user.isAnonymous;
+      
+      document.getElementById('user-info').innerText = isAnon ? "Playing Anonymously" : `Logged in as ${user.displayName || user.email}`;
+      document.getElementById('login-btn').style.display = isAnon ? "block" : "none";
+      document.getElementById('logout-btn').style.display = isAnon ? "none" : "block";
+
       await loadPlayerData();
       subscribeToPlayerUpdates();
     } else {
-      // Auto-login new players anonymously
-      signInAnonymously(auth).catch((error) => {
-        console.error("Auth Failed:", error);
-      });
+      signInAnonymously(auth).catch(console.error);
     }
   });
 
-  // Fetch initial player state
+  window.loginWithGoogle = async () => {
+    try {
+      // Upgrades the anonymous session or logs into an existing account
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Could not sign in with Google.");
+    }
+  };
+
+  window.logout = async () => {
+    await signOut(auth);
+    // User drops to null, onAuthStateChanged will generate a new anonymous session
+  };
+
+  // --- FIRESTORE DATA HANDLING ---
   async function loadPlayerData() {
     const playerRef = doc(db, "players", userId);
     const playerSnap = await getDoc(playerRef);
 
     if (playerSnap.exists()) {
       window.coins = playerSnap.data().coins;
+      localHistory = playerSnap.data().history || [];
     } else {
-      // First time playing, initialize the NoSQL document
       await setDoc(playerRef, {
         coins: 100,
         inventory: [],
-        lastLogin: new Date()
+        history: [],
+        lastLogin: new Date().toISOString()
       });
       window.coins = 100;
+      localHistory = [];
     }
-    window.updateUI(); // Calls your existing UI update function
+    window.updateUI();
   }
 
-  // Real-time listener for database changes (prevents cheating via multiple tabs)
   function subscribeToPlayerUpdates() {
     const playerRef = doc(db, "players", userId);
-    onSnapshot(playerRef, (doc) => {
-      if (doc.exists()) {
-        window.coins = doc.data().coins;
+    onSnapshot(playerRef, (docSnap) => {
+      if (docSnap.exists()) {
+        window.coins = docSnap.data().coins;
+        localHistory = docSnap.data().history || [];
         window.updateUI();
+        renderHistory(); 
       }
+    });
+  }
+
+  // --- RECORDING ACTIONS TO DATABASE ---
+  window.logActionToDB = async (actionDesc, cost, rewardDesc) => {
+    if (!userId) return;
+    const playerRef = doc(db, "players", userId);
+    
+    const historyEntry = {
+      timestamp: new Date().toISOString(),
+      action: actionDesc,
+      cost: cost,
+      reward: rewardDesc
+    };
+
+    // Calculate new coin balance locally before pushing to DB
+    let balanceChange = typeof rewardDesc === 'number' ? rewardDesc : 0;
+    let newBalance = window.coins - cost + balanceChange;
+
+    await updateDoc(playerRef, {
+      coins: newBalance,
+      history: arrayUnion(historyEntry)
+    });
+  };
+
+  // --- HISTORY UI ---
+  window.openHistory = () => {
+    renderHistory();
+    document.getElementById('history-modal').style.display = 'flex';
+  };
+
+  window.closeHistory = () => {
+    document.getElementById('history-modal').style.display = 'none';
+  };
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    list.innerHTML = "";
+    
+    if (localHistory.length === 0) {
+      list.innerHTML = "<div class='history-item'>No history yet. Pull some tabs!</div>";
+      return;
+    }
+
+    // Sort newest first
+    const sortedHistory = [...localHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    sortedHistory.forEach(entry => {
+      const date = new Date(entry.timestamp).toLocaleString();
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      
+      let rewardText = typeof entry.reward === 'number' ? `+${entry.reward} Coins` : entry.reward;
+      
+      item.innerHTML = `
+        <span class="time">${date}</span>
+        <strong>${entry.action}</strong><br/>
+        Cost: ${entry.cost} Coins | Result: ${rewardText}
+      `;
+      list.appendChild(item);
     });
   }
 </script>
