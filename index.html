@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lucky Pull Tabs</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #121212; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+    
+    .header { text-align: center; margin-bottom: 20px; }
+    .currency-card { background: #222; padding: 12px 24px; border-radius: 20px; border: 2px solid #ffd700; font-size: 1.2rem; font-weight: bold; }
+    
+    /* Pull Tab Card */
+    .card { background: #1e293b; width: 100%; max-width: 340px; border-radius: 16px; padding: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 2px solid #334155; }
+    .card-title { text-align: center; font-size: 1.1rem; color: #94a3b8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    
+    .tabs-container { display: flex; flex-direction: column; gap: 12px; }
+    .tab-row { position: relative; height: 60px; background: #0f172a; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px dashed #475569; }
+    
+    .tab-value { font-weight: bold; font-size: 1.1rem; color: #38bdf8; z-index: 1; }
+    .tab-cover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: transform 0.4s ease, opacity 0.4s ease; border-radius: 6px; user-select: none; }
+    .tab-cover.opened { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+    
+    /* Buttons */
+    .actions { margin-top: 20px; width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 10px; }
+    button { width: 100%; padding: 14px; border: none; border-radius: 10px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+    .btn-primary { background: #22c55e; color: white; }
+    .btn-secondary { background: #eab308; color: black; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; padding: 20px; }
+    .modal-content { background: #1e293b; padding: 24px; border-radius: 16px; max-width: 320px; text-align: center; border: 1px solid #475569; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🎟️ Pull Tab Frenzy</h1>
+    <div class="currency-card">Coins: <span id="coins">100</span> 🪙</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" id="card-name">Standard Card (10 Coins)</div>
+    <div class="tabs-container">
+      <div class="tab-row">
+        <div class="tab-value" id="val-0">???</div>
+        <div class="tab-cover" onclick="openTab(0)">PULL TAB 1 🚪</div>
+      </div>
+      <div class="tab-row">
+        <div class="tab-value" id="val-1">???</div>
+        <div class="tab-cover" onclick="openTab(1)">PULL TAB 2 🚪</div>
+      </div>
+      <div class="tab-row">
+        <div class="tab-value" id="val-2">???</div>
+        <div class="tab-cover" onclick="openTab(2)">PULL TAB 3 🚪</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-primary" id="new-card-btn" onclick="buyCard(10)">Buy Standard Card (10 Coins)</button>
+    <button class="btn-secondary" id="prize-card-btn" onclick="buyCard(100)">Buy PRIZE Card (100 Coins)</button>
+  </div>
+
+  <!-- Prize Winner Modal -->
+  <div class="modal" id="prize-modal">
+    <div class="modal-content">
+      <h2>🎉 YOU WON A PRIZE!</h2>
+      <p>You unlocked a physical <strong>Mystery Collector Pin</strong>!</p>
+      <p style="font-size: 0.85rem; color: #94a3b8;">Enter details to redeem your prize.</p>
+      <button class="btn-primary" onclick="closeModal()">Claim Prize</button>
+    </div>
+  </div>
+
+  <script>
+    let coins = 100;
+    let currentCardType = 'standard'; // 'standard' or 'prize'
+    let currentRewards = [0, 0, 0];
+    let openedCount = 0;
+
+    function updateUI() {
+      document.getElementById('coins').innerText = coins;
+      document.getElementById('new-card-btn').disabled = coins < 10 || openedCount < 3;
+      document.getElementById('prize-card-btn').disabled = coins < 100 || openedCount < 3;
+    }
+
+    function buyCard(cost) {
+      if (coins < cost) return;
+      coins -= cost;
+      currentCardType = cost === 100 ? 'prize' : 'standard';
+      openedCount = 0;
+
+      // Generate Rewards
+      if (currentCardType === 'standard') {
+        document.getElementById('card-name').innerText = "Standard Card";
+        currentRewards = [
+          Math.floor(Math.random() * 15),
+          Math.floor(Math.random() * 25),
+          Math.floor(Math.random() * 10)
+        ];
+      } else {
+        document.getElementById('card-name').innerText = "✨ PRIZE CARD ✨";
+        currentRewards = [
+          Math.floor(Math.random() * 50),
+          "🎁 MYSTERY PRIZE!",
+          Math.floor(Math.random() * 50)
+        ];
+      }
+
+      // Reset Covers
+      const covers = document.querySelectorAll('.tab-cover');
+      covers.forEach((cover, idx) => {
+        cover.classList.remove('opened');
+        document.getElementById(`val-${idx}`).innerText = '???';
+      });
+
+      updateUI();
+    }
+
+    function openTab(index) {
+      const cover = document.querySelectorAll('.tab-cover')[index];
+      if (cover.classList.contains('opened')) return;
+
+      cover.classList.add('opened');
+      const reward = currentRewards[index];
+      document.getElementById(`val-${index}`).innerText = typeof reward === 'number' ? `+${reward} Coins` : reward;
+
+      if (typeof reward === 'number') {
+        coins += reward;
+      } else if (reward.includes("PRIZE")) {
+        document.getElementById('prize-modal').style.display = 'flex';
+      }
+
+      openedCount++;
+      updateUI();
+    }
+
+    function closeModal() {
+      document.getElementById('prize-modal').style.display = 'none';
+    }
+
+    // Initialize
+    buyCard(10);
+  </script>
+</body>
+</html>
